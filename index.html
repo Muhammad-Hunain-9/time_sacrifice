@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Time Sacrifice</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{ --ui:#0b0f1e; --text:#eaf2ff; --accent:#5ef2a2; --warn:#ffd166; --danger:#ff6b6b; --hudH:0px; }
+  html,body{ margin:0; height:100vh; overflow:hidden; background:#000; color:var(--text); font-family:"Press Start 2P",monospace; }
+  #cv{ position:fixed; top:0; left:0; width:100vw; height:calc(100vh - var(--hudH,0px)); image-rendering:pixelated; image-rendering:crisp-edges; display:block; background:#000; }
+  #map{ position:fixed; right:10px; top:10px; width:160px; height:120px; background:#0b0f1e; border:2px solid #2a3d66; border-radius:8px; z-index:4; display:none; image-rendering:pixelated; box-shadow:0 0 0 3px #081020 inset,0 6px 18px rgba(0,0,0,.5); }
+  #timebarWrap{ position:fixed; left:0; right:0; bottom:0; background:linear-gradient(#0a1021,#0b0f1e); border-top:2px solid #2a3d66; padding:12px 14px; z-index:5; display:none }
+  #timeLabel{ font-weight:900; letter-spacing:.4px; margin-bottom:6px; color:#ffd6d6; text-shadow:0 2px 0 #000 }
+  .meter{ width:100%; height:26px; background:rgba(255,255,255,.08); border:2px solid #2a3d66; border-radius:10px; overflow:hidden; position:relative; box-shadow:0 0 0 3px #07101c inset; }
+  .meter > .fill{ height:100%; width:100%; background:var(--accent) }
+  .meter > .text{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:900; color:#03130b; text-shadow:0 1px 0 rgba(255,255,255,.25) }
+  #actions{ display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap; font-size:11px }
+  button{ appearance:none; border:0; cursor:pointer; font-family:"Press Start 2P",monospace; }
+  .btn8{ padding:14px 18px; color:#03130b; background:#2be38c; border:3px solid #0e6a45; box-shadow:0 0 0 3px #062616 inset, 0 6px 0 #0e6a45, 0 8px 14px rgba(0,0,0,.5); border-radius:12px; }
+  .btn8:active{ transform:translateY(2px); box-shadow:0 0 0 3px #062616 inset, 0 4px 0 #0e6a45, 0 6px 10px rgba(0,0,0,.5); }
+  .danger{ background:#ff6b6b; color:#fff; border:3px solid #7d1515; box-shadow:0 0 0 3px #2a0909 inset,0 6px 0 #7d1515; }
+  .warn{ background:#ffd166; color:#071015; border:3px solid #8f6b15; box-shadow:0 0 0 3px #2a1f07 inset,0 6px 0 #8f6b15; }
+
+  /* Menu */
+  #menu{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:9; overflow:hidden; }
+  #menuBg{ position:absolute; inset:0; background:radial-gradient(1200px 800px at 50% 40%, #0b1130 0%, #050918 65%, #02050f 100%); }
+  .stars, .stars2{ position:absolute; inset:-40px; image-rendering:pixelated; background-size:cover; opacity:.55; filter:contrast(115%) saturate(120%); }
+  .stars{
+    background-image:
+      radial-gradient(2px 2px at 10% 20%, #bfeaff 60%, transparent 61%),
+      radial-gradient(2px 2px at 40% 70%, #a6ffc1 60%, transparent 61%),
+      radial-gradient(1px 1px at 70% 30%, #ffd6a6 60%, transparent 61%),
+      radial-gradient(1px 1px at 85% 60%, #fff 60%, transparent 61%);
+    animation: drift 22s linear infinite;
+  }
+  .stars2{
+    background-image:
+      radial-gradient(2px 2px at 20% 60%, #dff6ff 60%, transparent 61%),
+      radial-gradient(1px 1px at 55% 35%, #b7ffa6 60%, transparent 61%),
+      radial-gradient(1px 1px at 78% 75%, #fff 60%, transparent 61%);
+    animation: drift2 36s linear infinite; opacity:.35;
+  }
+  @keyframes drift{ from{ transform:translateY(0) } to{ transform:translateY(60px) } }
+  @keyframes drift2{ from{ transform:translateY(0) } to{ transform:translateY(90px) } }
+
+  #crt{ position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(closest-side at 50% 50%, rgba(0,0,0,0) 60%, rgba(0,0,0,.35) 100%),
+               repeating-linear-gradient(0deg, rgba(255,255,255,.06), rgba(255,255,255,.06) 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 4px);
+    mix-blend-mode:overlay;
+  }
+  #menuInner{ position:relative; max-width:980px; margin:0 24px; text-align:center; z-index:2 }
+  .panel{ display:none } .panel.show{ display:block }
+  .pixelCard{ display:inline-block; padding:26px 28px 30px; border-radius:14px; background:linear-gradient(#0f1936,#0c142b); border:3px solid #2a3d66; box-shadow:0 0 0 4px #081020 inset, 0 18px 40px rgba(0,0,0,.7); }
+  .logo{ font-size:34px; line-height:1; margin:0 0 18px 0; color:#dff6ff; text-shadow:0 3px 0 #081020, 0 0 12px rgba(111,220,255,.35), 0 0 24px rgba(111,220,255,.18); }
+  .tag{ font-size:12px; color:#a6d3ff; margin-bottom:16px; text-shadow:0 2px 0 #000 }
+  .btn8.big{ font-size:18px; padding:16px 22px }
+  .subtitle{ font-size:13px; line-height:1.55; white-space:pre-line; margin:0 0 16px 0; color:#e9f2ff; text-shadow:0 2px 0 #000; min-height:6em }
+  .flicker{ animation:flicker 3.2s infinite }
+  @keyframes flicker{ 0%{opacity:.96;text-shadow:0 0 8px rgba(96,183,255,.16)} 8%{opacity:.7} 12%{opacity:.98} 18%{opacity:.68} 26%{opacity:.95} 40%{opacity:.72} 55%{opacity:.97} 72%{opacity:.66} 100%{opacity:.96} }
+  .type{ overflow:hidden; display:inline-block; border-right:3px solid #bfeaff; white-space:pre-line; animation: caret 1s steps(1) infinite; }
+  @keyframes caret{ 50%{ border-color:transparent } }
+</style>
+</head>
+<body>
+  <canvas id="cv"></canvas>
+  <canvas id="map"></canvas>
+
+  <!-- MENU -->
+  <div id="menu">
+    <div id="menuBg"></div>
+    <div class="stars"></div>
+    <div class="stars2"></div>
+    <div id="menuInner">
+      <div id="panelTitle" class="panel show">
+        <div class="pixelCard">
+          <div class="flicker" style="font-size: 70px;">TIME SACRIFICE</div><br>
+          <div class="tag">A rescue under a ticking clock</div>
+          <button id="startBtn" class="btn8 big">START</button><br><br>
+          <div id="hint" class="flicker" style="margin-top:14px; font-size:12px; color:#bfeaff">Press Enter or START</div>
+        </div>
+      </div>
+      <div id="panelStory" class="panel">
+        <div class="pixelCard">
+          <div id="story" class="subtitle type"></div>
+          <button id="beginBtn" class="btn8">BEGIN MISSION</button><br><br>
+          <div style="margin-top:12px; font-size:11px; color:#bfeaff">WASD move. Hold Shift to sprint. Hold E to interact.</div>
+        </div>
+      </div>
+    </div>
+    <div id="crt"></div>
+  </div>
+
+  <!-- HUD -->
+  <div id="timebarWrap">
+    <div id="timeLabel">TIME LEFT</div>
+    <div id="timeBar" class="meter"><div id="timeFill" class="fill"></div><div id="timeText" class="text">05:00</div></div>
+    <div id="hostageBar" class="meter" style="margin-top:8px"><div id="hostageFill" class="fill"></div><div id="hostageText" class="text">HOSTAGES LEFT: 5</div></div>
+    <div id="actions" style="margin-top:10px">
+      <button id="btnReveal" class="danger">Reveal Hostage − 30s</button>
+      <button id="btnBoost" class="warn">Speed Boost − 15s</button>
+      <span style="color:#9db7ff">Hold E to rescue / enter / deliver</span>
+    </div>
+  </div>
+  <audio id="bgm" src="Eggy Toast - You Tried.mp3" preload="auto" loop></audio>
+
+<script>
+/* ================= CONFIG ================= */
+const CONFIG = {
+  VIRTUAL_W: 320, VIRTUAL_H: 180,
+  WORLD_W: 3200, WORLD_H: 2400,
+  TILE: 16, TREES: 6000, HOSTAGE_COUNT: 5,
+  SPEED: 800, SPRINT: 1.5, FRICTION: 0.86,
+  RESCUE_DIST: 12, HOLD_TIME: 1.1,
+  TIME_START: 301, COST_REVEAL: 30, COST_BOOST: 15,
+  BOOST_DUR: 15, BOOST_MULT: 2,
+  REWARD_RESCUE: 15,
+
+  VAN_DIST_MIN: 260,       
+  ENTER_HOLD: 0.6,         
+  VAN_SPEED: 900,          
+  VAN_FRICTION: 0.90,
+
+  SAFE_DIST_MIN: 600,      
+  SAFE_RADIUS: 18,         
+  DELIVER_HOLD: 1.2        
+};
+
+/* ====== AUDIO ====== */
+const BGM_VOL=0.55, SFX_VOL=0.32;
+let audioCtx, sfxGain, startedAudio=false, stepPhase=-1;
+function initAudio(){ if(startedAudio) return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  sfxGain=audioCtx.createGain(); sfxGain.gain.value=SFX_VOL; sfxGain.connect(audioCtx.destination);
+  startedAudio=true;
+}
+function sfx(kind){
+  if(!startedAudio) return;
+  const t=audioCtx.currentTime, o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.type='square'; let d=.12;
+  if(kind==='reveal'){ o.frequency.setValueAtTime(520,t); d=.18; }
+  else if(kind==='boost'){ o.frequency.setValueAtTime(220,t); o.frequency.exponentialRampToValueAtTime(660,t+.18); d=.18; }
+  else if(kind==='rescueTick'){ o.frequency.setValueAtTime(420,t); d=.04; }
+  else if(kind==='rescued'){ o.frequency.setValueAtTime(330,t); o.frequency.exponentialRampToValueAtTime(1320,t+.22); d=.26; }
+  else if(kind==='start'){ o.frequency.setValueAtTime(300,t); o.frequency.exponentialRampToValueAtTime(900,t+.20); d=.22; }
+  else if(kind==='low'){ o.frequency.setValueAtTime(140,t); d=.09; }
+  else if(kind==='van'){ o.frequency.setValueAtTime(180,t); o.frequency.exponentialRampToValueAtTime(720,t+.28); d=.32; }
+  else if(kind==='enter'){ o.frequency.setValueAtTime(220,t); o.frequency.exponentialRampToValueAtTime(880,t+.22); d=.24; }
+  else if(kind==='goal'){ o.frequency.setValueAtTime(500,t); o.frequency.exponentialRampToValueAtTime(1000,t+.25); d=.28; }
+  else if(kind==='extract'){ o.frequency.setValueAtTime(500,t); o.frequency.exponentialRampToValueAtTime(90,t+.35); d=.40; }
+  g.gain.value=.0001; g.gain.exponentialRampToValueAtTime(.30,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+Math.max(.05,d));
+  o.connect(g); g.connect(sfxGain); o.start(); o.stop(t+Math.max(.06,d));
+}
+
+/* ====== DOM/Canvas ====== */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d',{alpha:false}); ctx.imageSmoothingEnabled=false;
+const map=document.getElementById('map'), mctx=map.getContext('2d');
+const timebarWrap=document.getElementById('timebarWrap');
+const timeFill=document.getElementById('timeFill'), timeText=document.getElementById('timeText');
+const hostageFill=document.getElementById('hostageFill'), hostageText=document.getElementById('hostageText');
+const btnReveal=document.getElementById('btnReveal'), btnBoost=document.getElementById('btnBoost');
+const menu=document.getElementById('menu');
+const panelTitle=document.getElementById('panelTitle');
+const panelStory=document.getElementById('panelStory');
+const startBtn=document.getElementById('startBtn');
+const beginBtn=document.getElementById('beginBtn');
+const storyEl=document.getElementById('story');
+const bgmEl=document.getElementById('bgm');
+
+/* Low-res buffer */
+const buf=document.createElement('canvas'); buf.width=CONFIG.VIRTUAL_W; buf.height=CONFIG.VIRTUAL_H;
+const g=buf.getContext('2d',{alpha:false}); g.imageSmoothingEnabled=false;
+
+/* Fullscreen sizing */
+function setHudVar(){ const h=timebarWrap.style.display==='none'?0:timebarWrap.offsetHeight; document.documentElement.style.setProperty('--hudH', h+'px'); }
+function resize(){
+  setHudVar();
+  cv.width=window.innerWidth;
+  cv.height=Math.max(1, window.innerHeight-(parseInt(getComputedStyle(document.documentElement).getPropertyValue('--hudH'))||0));
+  ctx.imageSmoothingEnabled=false;
+}
+addEventListener('resize', resize);
+
+/* ====== STATE ====== */
+let started=false, lastT=0, timeLeft=CONFIG.TIME_START, boostT=0;
+const keys={w:0,a:0,s:0,d:0,up:0,left:0,down:0,right:0,shift:0,e:0};
+const player={x:CONFIG.WORLD_W/2,y:CONFIG.WORLD_H/2,vx:0,vy:0,dir:1,stepTime:0};
+const hostages=[], revealed=new Set();
+let rescued=0, holdTarget=null, holdTimer=0;
+const trees=[], grassNoise=[], grassSpeck=[];
+const van={active:false,x:0,y:0,vx:0,vy:0,progress:0};
+const safe={active:false,x:0,y:0,progress:0};
+let deliverTimer=0, enterTimer=0, inVan=false;
+
+/* ====== INPUT ====== */
+addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    if(menu.style.display!=='none'){
+      if(panelStory.classList.contains('show')) beginGame();
+      else showStory();
+    } else if(!started){ beginGame(); }
+  }
+  if(e.key==='w'||e.key==='W') keys.w=1; if(e.key==='a'||e.key==='A') keys.a=1;
+  if(e.key==='s'||e.key==='S') keys.s=1; if(e.key==='d'||e.key==='D') keys.d=1;
+  if(e.key==='ArrowUp') keys.up=1; if(e.key==='ArrowLeft') keys.left=1;
+  if(e.key==='ArrowDown') keys.down=1; if(e.key==='ArrowRight') keys.right=1;
+  if(e.key==='Shift') keys.shift=1; if(e.key==='e'||e.key==='E') keys.e=1;
+  if(e.key==='1') tryReveal(); if(e.key==='2') tryBoost();
+});
+addEventListener('keyup',e=>{
+  if(e.key==='w'||e.key==='W') keys.w=0; if(e.key==='a'||e.key==='A') keys.a=0;
+  if(e.key==='s'||e.key==='S') keys.s=0; if(e.key==='d'||e.key==='D') keys.d=0;
+  if(e.key==='ArrowUp') keys.up=0; if(e.key==='ArrowLeft') keys.left=0;
+  if(e.key==='ArrowDown') keys.down=0; if(e.key==='ArrowRight') keys.right=0;
+  if(e.key==='Shift') keys.shift=0; if(e.key==='e'||e.key==='E') keys.e=0;
+});
+btnReveal.onclick=()=>tryReveal(); btnBoost.onclick=()=>tryBoost();
+
+/* ====== MENU FLOW ====== */
+startBtn.onclick=showStory;
+beginBtn.onclick=beginGame;
+
+const STORY_TEXT = [
+  "The world is broken,",
+  "and so are you.",
+  "Five hostages are out there.",
+  "Every clue costs time.",
+  "You have five minutes.",
+  "Can you save them all?"
+].join("\n");
+
+function typeStory(text){
+  storyEl.textContent="";
+  const speed=28; let i=0;
+  const id=setInterval(()=>{ storyEl.textContent=text.slice(0,i++); if(i>text.length){ clearInterval(id); storyEl.classList.remove('type'); } }, speed);
+}
+function showStory(){ panelTitle.classList.remove('show'); panelStory.classList.add('show'); storyEl.classList.add('type'); typeStory(STORY_TEXT); }
+function beginGame(){
+  started=true; menu.style.display='none'; timebarWrap.style.display='block'; map.style.display='block'; resize();
+  initAudio(); if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume();
+  bgmEl.volume=BGM_VOL; const p=bgmEl.play(); if(p) p.catch(()=>{});
+  sfx('start'); updateHostageBar();
+}
+
+/* ====== WORLD GEN ====== */
+function seeded(i,j){ let x=(i*374761393 + j*668265263) ^ 0x9e3779b9; x=(x^(x>>>13))>>>0; return (x%9973)/9973; }
+function rndi(a,b){ return Math.floor(a + Math.random()*(b-a+1)); }
+function genGrass(){
+  const cols=Math.ceil(CONFIG.WORLD_W/CONFIG.TILE), rows=Math.ceil(CONFIG.WORLD_H/CONFIG.TILE);
+  for(let ty=0;ty<rows;ty++){ grassNoise[ty]=[]; grassSpeck[ty]=[];
+    for(let tx=0;tx<cols;tx++){ const s=seeded(tx,ty);
+      grassNoise[ty][tx]=Math.round((s*2-1)*6);
+      grassSpeck[ty][tx]=[[ (s*17)%16|0,(s*43)%16|0 ],[ (s*71)%16|0,(s*29)%16|0 ],[ (s*97)%16|0,(s*59)%16|0 ]];
+    }
+  }
+}
+function genTrees(){ for(let i=0;i<CONFIG.TREES;i++){ const x=rndi(16,CONFIG.WORLD_W-16), y=rndi(16,CONFIG.WORLD_H-16); trees.push({x,y,r:3+(x*y)%3,t:(x+2*y)%3}); } }
+function genHostages(){
+  const minDist=220;
+  for(let i=0;i<CONFIG.HOSTAGE_COUNT;i++){
+    let x,y,ok=false,tries=0;
+    while(!ok&&tries<2000){ x=rndi(24,CONFIG.WORLD_W-24); y=rndi(24,CONFIG.WORLD_H-24); ok=Math.hypot(x-player.x,y-player.y)>minDist; tries++; }
+    hostages.push({x,y,alive:true,id:i,progress:0,blink:Math.random()*2});
+  }
+}
+genGrass(); genTrees(); genHostages(); resize();
+
+/* ====== ABILITIES ====== */
+function tryReveal(){
+  if(!started||timeLeft<=CONFIG.COST_REVEAL+.1) return;
+  let best=null,bd=1e9; for(const h of hostages){ if(!h.alive||revealed.has(h.id)) continue;
+    const d=Math.hypot(h.x-player.x,h.y-player.y); if(d<bd){ bd=d; best=h; } }
+  if(!best) return; timeLeft-=CONFIG.COST_REVEAL; revealed.add(best.id); sfx('reveal'); updateTimeBar();
+}
+function tryBoost(){ if(!started||timeLeft<=CONFIG.COST_BOOST+.1) return; timeLeft-=CONFIG.COST_BOOST; boostT=CONFIG.BOOST_DUR; sfx('boost'); updateTimeBar(); }
+
+/* ====== VAN + SAFE ZONE ====== */
+function spawnVan(){
+  let x,y,ok=false,tries=0;
+  while(!ok && tries<3000){
+    x=rndi(32,CONFIG.WORLD_W-32); y=rndi(32,CONFIG.WORLD_H-32);
+    ok=Math.hypot(x-player.x,y-player.y)>=CONFIG.VAN_DIST_MIN; tries++;
+  }
+  van.x=x; van.y=y; van.vx=0; van.vy=0; van.active=true; van.progress=0; enterTimer=0; sfx('van'); updateHostageBar();
+}
+function spawnSafe(){
+  let x,y,ok=false,tries=0;
+  while(!ok && tries<3000){
+    x=rndi(40,CONFIG.WORLD_W-40); y=rndi(40,CONFIG.WORLD_H-40);
+    ok=Math.hypot(x-van.x,y-van.y)>=CONFIG.SAFE_DIST_MIN; tries++;
+  }
+  safe.x=x; safe.y=y; safe.active=true; safe.progress=0; sfx('goal'); updateHostageBar();
+}
+
+/* ====== UPDATE ====== */
+let lowTick=0;
+function update(dt){
+  if(!started) return;
+  timeLeft=Math.max(0,timeLeft-dt); updateTimeBar();
+  if(timeLeft<30){ lowTick+=dt; if(lowTick>1){ sfx('low'); lowTick=0; } }
+
+  // movement input
+  const ix=(keys.d||keys.right)-(keys.a||keys.left);
+  const iy=(keys.s||keys.down)-(keys.w||keys.up);
+  const mag=Math.hypot(ix,iy);
+
+  if(!inVan){
+    // on-foot
+    let speed=CONFIG.SPEED*(keys.shift?CONFIG.SPRINT:1);
+    if(boostT>0){ speed*=CONFIG.BOOST_MULT; boostT=Math.max(0,boostT-dt); }
+    if(mag>0){
+      const nx=ix/mag, ny=iy/mag; player.vx+=nx*speed*dt*2; player.vy+=ny*speed*dt*2;
+      if(Math.abs(nx)>0.01) player.dir = nx>=0 ? 1 : -1;
+      player.stepTime += dt*(2.4 + 0.6*(keys.shift?1:0));
+      const ph=Math.floor(player.stepTime*10)%4; if(ph!==stepPhase){ sfx('rescueTick'); stepPhase=ph; }
+    } else { player.stepTime=0; stepPhase=-1; }
+    player.vx*=CONFIG.FRICTION; player.vy*=CONFIG.FRICTION;
+    player.x=Math.max(8,Math.min(CONFIG.WORLD_W-8, player.x+player.vx*dt));
+    player.y=Math.max(8,Math.min(CONFIG.WORLD_H-8, player.y+player.vy*dt));
+  } else {
+    // in van, drive the van
+    let v = CONFIG.VAN_SPEED;
+    if(boostT>0){ v*=CONFIG.BOOST_MULT; boostT=Math.max(0,boostT-dt); }
+    if(mag>0){ const nx=ix/mag, ny=iy/mag; van.vx+=nx*v*dt*2; van.vy+=ny*v*dt*2; }
+    van.vx*=CONFIG.VAN_FRICTION; van.vy*=CONFIG.VAN_FRICTION;
+    van.x=Math.max(12,Math.min(CONFIG.WORLD_W-12, van.x+van.vx*dt));
+    van.y=Math.max(12,Math.min(CONFIG.WORLD_H-12, van.y+van.vy*dt));
+    // keep player's position in the van so camera centers well
+    player.x = van.x; player.y = van.y;
+  }
+
+  // hostage blink
+  for(const h of hostages){ h.blink=(h.blink||0)+dt; if(h.blink>2.2) h.blink=0; }
+
+  // rescue flow
+  if(!inVan){
+    let nearest=null, nd=1e9;
+    for(const h of hostages){ if(!h.alive) continue; const d=Math.hypot(h.x-player.x,h.y-player.y); if(d<nd){ nd=d; nearest=h; } }
+    if(nearest && nd<=CONFIG.RESCUE_DIST && timeLeft>0){
+      if(keys.e){
+        if(holdTarget!==nearest){ holdTarget=nearest; holdTimer=0; }
+        holdTimer+=dt; nearest.progress=holdTimer/CONFIG.HOLD_TIME;
+        if(holdTimer>=CONFIG.HOLD_TIME){
+          nearest.alive=false; rescued++; holdTarget=null; holdTimer=0; sfx('rescued');
+          timeLeft += CONFIG.REWARD_RESCUE; updateTimeBar(); updateHostageBar();
+          if(rescued>=CONFIG.HOSTAGE_COUNT && !van.active){ spawnVan(); }
+        }
+      } else { if(holdTarget){ holdTarget.progress=0; } holdTarget=null; holdTimer=0; }
+    } else { if(holdTarget){ holdTarget.progress=0; } holdTarget=null; holdTimer=0; }
+  }
+
+  // enter van
+  if(van.active && !inVan){
+    const d=Math.hypot(van.x-player.x, van.y-player.y);
+    if(d<=14 && timeLeft>0){
+      if(keys.e){ enterTimer += dt; van.progress = Math.min(1, enterTimer / CONFIG.ENTER_HOLD);
+        if(enterTimer >= CONFIG.ENTER_HOLD){
+          inVan = true; van.progress=0; sfx('enter');
+          if(!safe.active) spawnSafe();
+          updateHostageBar();
+        }
+      } else { van.progress=0; enterTimer=0; }
+    } else { van.progress=0; enterTimer=0; }
+  }
+
+  // deliver at safe zone
+  if(inVan && safe.active){
+    const d=Math.hypot(safe.x-van.x, safe.y-van.y);
+    if(d<=CONFIG.SAFE_RADIUS && timeLeft>0){
+      if(keys.e){
+        deliverTimer += dt; safe.progress = Math.min(1, deliverTimer / CONFIG.DELIVER_HOLD);
+        if(deliverTimer >= CONFIG.DELIVER_HOLD){
+          sfx('extract'); showEnd('Extraction complete. You win.');
+          safe.active=false; van.active=false;
+        }
+      } else { safe.progress=0; deliverTimer=0; }
+    } else { safe.progress=0; deliverTimer=0; }
+  }
+}
+
+/* ====== RENDER HELPERS ====== */
+function pRect(x,y,w,h,c){ g.fillStyle=c; g.fillRect(x|0,y|0,w|0,h|0); }
+function drawGrassTile(tx,ty){
+  const jit=grassNoise[ty]?.[tx]??0, specks=grassSpeck[ty]?.[tx]??[];
+  const base=126+jit, X=tx*CONFIG.TILE, Y=ty*CONFIG.TILE;
+  g.fillStyle=`rgb(${base-45},${base+55},${base-28})`; g.fillRect(X,Y,CONFIG.TILE,CONFIG.TILE);
+  g.fillStyle=`rgba(255,255,255,0.05)`; for(const [sx,sy] of specks) g.fillRect(X+sx,Y+sy,1,1);
+}
+function drawTree(x,y,r,t){
+  pRect(x-1,y,3,r+3,'#5b3b24');
+  const pal=t===0?['#1f6a2e','#2f8a42','#124e1c']:t===1?['#1b5759','#2a787a','#0f3f41']:['#5a6a1f','#7f962e','#3a4a13'];
+  for(let yy=-r;yy<=0;yy++){ const span=Math.round(Math.sqrt(r*r-yy*yy));
+    for(let xx=-span;xx<=span;xx++){ const c=pal[(xx-yy+50)%pal.length]; pRect(x+xx,y+yy,1,1,c); }
+  }
+  g.fillStyle='rgba(0,0,0,.35)'; g.fillRect(x-r-1,y-r-1,1,r+2); g.fillRect(x+r,y-r-1,1,r+2);
+}
+function drawPlayer(px,py){
+  const f=started?(Math.floor(player.stepTime*6)%4):0, dir=player.dir, bob=(f===1||f===3)?-1:0;
+  g.save(); g.translate(px,py+bob); g.scale(dir,1);
+  pRect(-5, 8, 10, 2, 'rgba(0,0,0,0.25)');
+  function outlineRect(x,y,w,h){ pRect(x-1,y-1,w+2,1,'#000'); pRect(x-1,y+h,w+2,1,'#000'); pRect(x-1,y,1,h,'#000'); pRect(x+w,y,1,h,'#000'); }
+  const coat='#163449', coat2='#1f5070', skin='#e8c8b0', shirt='#eaeef2', pants='#2e6f7a', hair='#c8ccdf';
+  outlineRect(-3,-13,6,6); pRect(-3,-13,6,6,hair); pRect(-2,-11,4,4,skin);
+  outlineRect(-4,-7,8,10); pRect(-4,-7,8,10,coat); pRect(-2,-6,4,8,coat2); pRect(-1,-5,2,6,shirt);
+  outlineRect(-5,-6,2,5); pRect(-5,-6,2,5,coat);
+  outlineRect(3,-6,2,5);  pRect(3,-6,2,5,coat);
+  const ldx=(f===1?-1:f===3?1:0), rdx=-ldx;
+  outlineRect(-3+ldx,3,3,5); pRect(-3+ldx,3,3,5,pants);
+  outlineRect(0+rdx,3,3,5);  pRect(0+rdx,3,3,5,pants);
+  pRect(1,-12,1,1,'#fff'); pRect(-4,-2,1,1,'#87c7ff');
+  g.restore();
+}
+function drawHostage(x,y,revealedMark=false,progress=0,blinkT=0){
+  if(revealedMark){
+    g.fillStyle='rgba(255,107,107,0.12)'; g.fillRect(x-9,y-13,18,18);
+    pRect(x-4,y,8,1,'#ff6b6b'); pRect(x,y-4,1,8,'#ff6b6b');
+  }
+  function outlineRect(x0,y0,w,h){ pRect(x0-1,y0-1,w+2,1,'#000'); pRect(x0-1,y0+h,w+2,1,'#000'); pRect(x0-1,y0,1,h,'#000'); pRect(x0+w,y0,1,h,'#000'); }
+  const jacket='#3a4e7c', jacket2='#5e79b5', pants='#2b2b2b', skin='#e7c7a7', rope='#b58a52';
+  outlineRect(x-4,y-11,8,9); pRect(x-4,y-11,8,9,jacket); pRect(x-3,y-10,6,4,jacket2);
+  outlineRect(x-2,y-15,4,4); pRect(x-2,y-15,4,4,skin); if(blinkT>0.1) pRect(x-1,y-13,2,1,'#000');
+  outlineRect(x-3,y-2,6,4); pRect(x-3,y-2,6,4,pants);
+  pRect(x-4,y-5,8,1,rope); pRect(x-4,y-4,8,1,'#8b6b3d');
+  if(progress>0){ const w=Math.round(Math.min(1,progress)*14); g.fillStyle='#5ef2a2'; g.fillRect(x-7, y-14, w, 1); }
+}
+function drawVan(x,y,progress=0){
+  pRect(x-10,y-7,20,10,'#2a3d66');
+  pRect(x-10,y-7,20,2,'#3b5799');
+  pRect(x-8,y-5,8,4,'#a6c3ff');
+  pRect(x+1,y-5,7,4,'#88a7e6');
+  pRect(x-11,y-2,22,1,'#0a0f1e');
+  pRect(x-7,y+3,4,3,'#111'); pRect(x+3,y+3,4,3,'#111');
+  if(progress>0){ const w=Math.round(Math.min(1,progress)*18); g.fillStyle='#5ef2a2'; g.fillRect(x-9, y-9, w, 1); }
+}
+function drawSafe(x,y,progress=0){
+  // glowing landing pad / safe zone
+  pRect(x-12,y-8,24,16,'#2f2f2f');
+  pRect(x-11,y-7,22,14,'#3a3a3a');
+  pRect(x-9,y-5,18,10,'#203a1f');
+  // cross
+  pRect(x-2,y-4,4,8,'#ffd166'); pRect(x-6,y-1,12,2,'#ffd166');
+  if(progress>0){ const w=Math.round(Math.min(1,progress)*18); g.fillStyle='#5ef2a2'; g.fillRect(x-9, y-9, w, 1); }
+}
+
+/* pointer arrow to a target */
+function drawArrow(cam, tx, ty){
+  const dx=tx-player.x, dy=ty-player.y; const ang=Math.atan2(dy,dx);
+  const px=player.x-cam.x, py=player.y-cam.y;
+  g.save(); g.translate(px,py-18); g.rotate(ang);
+  pRect(0,-1,12,2,'#ffd166'); pRect(12,-2,3,4,'#ffd166');
+  g.restore();
+}
+
+/* camera and world draw */
+function getCam(){ let cx=Math.round(player.x-CONFIG.VIRTUAL_W/2), cy=Math.round(player.y-CONFIG.VIRTUAL_H/2);
+  cx=Math.max(0,Math.min(cx,CONFIG.WORLD_W-CONFIG.VIRTUAL_W)); cy=Math.max(0,Math.min(cy,CONFIG.WORLD_H-CONFIG.VIRTUAL_H)); return {x:cx,y:cy}; }
+
+function drawWorld(){
+  const cam=getCam(); g.fillStyle='#18251a'; g.fillRect(0,0,CONFIG.VIRTUAL_W,CONFIG.VIRTUAL_H);
+  const t=CONFIG.TILE, tx0=Math.floor(cam.x/t), ty0=Math.floor(cam.y/t), tx1=Math.ceil((cam.x+CONFIG.VIRTUAL_W)/t), ty1=Math.ceil((cam.y+CONFIG.VIRTUAL_H)/t);
+  for(let ty=ty0;ty<ty1;ty++) for(let tx=tx0;tx<tx1;tx++) drawGrassTile(tx,ty);
+
+  const vis=[]; for(const tr of trees){
+    if(tr.x>=cam.x-16&&tr.x<=cam.x+CONFIG.VIRTUAL_W+16&&tr.y>=cam.y-32&&tr.y<=cam.y+CONFIG.VIRTUAL_H+16) vis.push(tr);
+  } vis.sort((a,b)=>a.y-b.y);
+
+  const things=[]; for(const tr of vis) things.push({y:tr.y,type:'tree',tr});
+  for(const h of hostages){ if(!h.alive) continue;
+    if(h.x>=cam.x-16&&h.x<=cam.x+CONFIG.VIRTUAL_W+16&&h.y>=cam.y-16&&h.y<=cam.y+CONFIG.VIRTUAL_H+16) things.push({y:h.y,type:'host',h});
+  }
+  if(van.active && van.x>=cam.x-20 && van.x<=cam.x+CONFIG.VIRTUAL_W+20 && van.y>=cam.y-20 && van.y<=cam.y+CONFIG.VIRTUAL_H+20){
+    things.push({y:van.y,type:'van'});
+  }
+  if(safe.active && safe.x>=cam.x-20 && safe.x<=cam.x+CONFIG.VIRTUAL_W+20 && safe.y>=cam.y-20 && safe.y<=cam.y+CONFIG.VIRTUAL_H+20){
+    things.push({y:safe.y,type:'safe'});
+  }
+  things.push({y:player.y,type:'player'}); things.sort((a,b)=>a.y-b.y);
+
+  for(const it of things){
+    if(it.type==='tree') drawTree(it.tr.x-cam.x,it.tr.y-cam.y,it.tr.r,it.tr.t);
+    else if(it.type==='host'){ const mark=revealed.has(it.h.id); drawHostage(it.h.x-cam.x,it.h.y-cam.y,mark,it.h.progress||0,it.h.blink||0); }
+    else if(it.type==='van'){ drawVan(van.x-cam.x, van.y-cam.y, van.progress||0); }
+    else if(it.type==='safe'){ drawSafe(safe.x-cam.x, safe.y-cam.y, safe.progress||0); }
+    else if(!inVan){ drawPlayer(player.x-cam.x,player.y-cam.y); } // hide player while driving
+  }
+
+  // pointer: to van first, then to safe while inVan
+  if(van.active && !inVan){ drawArrow(cam, van.x, van.y); }
+  if(inVan && safe.active){ drawArrow(cam, safe.x, safe.y); }
+
+  g.strokeStyle='rgba(0,0,0,0.35)'; g.strokeRect(-cam.x+0.5,-cam.y+0.5,CONFIG.WORLD_W-1,CONFIG.WORLD_H-1);
+}
+
+function drawMini(){
+  const mw=map.width=160, mh=map.height=120; mctx.imageSmoothingEnabled=false;
+  mctx.fillStyle='#061018'; mctx.fillRect(0,0,mw,mh);
+  const sx=mw/CONFIG.WORLD_W, sy=mh/CONFIG.WORLD_H;
+  mctx.fillStyle='#2f7d3d'; for(let i=0;i<trees.length;i+=6){ const tr=trees[i]; mctx.fillRect(tr.x*sx, tr.y*sy, 1,1); }
+  mctx.fillStyle='#ff6b6b'; for(const h of hostages){ if(!h.alive||!revealed.has(h.id)) continue; mctx.fillRect(h.x*sx-1, h.y*sy-1, 2,2); }
+  if(van.active){ mctx.fillStyle='#5aa7f2'; mctx.fillRect(van.x*sx-1, van.y*sy-1, 2,2); }
+  if(safe.active){ mctx.fillStyle='#ffd166'; mctx.fillRect(safe.x*sx-1, safe.y*sy-1, 2,2); }
+  mctx.fillStyle='#5ef2a2'; if(!inVan) mctx.fillRect(player.x*sx-1, player.y*sy-1, 2,2);
+  const cam=getCam(); mctx.strokeStyle='rgba(255,255,255,0.3)'; mctx.lineWidth=1; mctx.strokeRect(cam.x*sx, cam.y*sy, CONFIG.VIRTUAL_W*sx, CONFIG.VIRTUAL_H*sy);
+}
+
+/* HUD */
+function updateTimeBar(){
+  const pct=Math.max(0,Math.min(1,timeLeft/CONFIG.TIME_START));
+  timeFill.style.width=(pct*100).toFixed(1)+'%';
+  timeFill.style.background=pct<.25?'#ff6b6b':pct<.5?'#ffd166':'#5ef2a2';
+  const m=Math.floor(timeLeft/60), s=Math.floor(timeLeft%60);
+  timeText.textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function updateHostageBar(){
+  const left = CONFIG.HOSTAGE_COUNT - rescued;
+  const pct = 1 - (rescued/CONFIG.HOSTAGE_COUNT);
+  hostageFill.style.width = (pct*100).toFixed(1)+'%';
+  let label = `HOSTAGES LEFT: ${left}`;
+  if(van.active && !inVan) label = `ENTER VAN →`;
+  if(inVan && safe.active) label = `DRIVE TO SAFEHOUSE →`;
+  hostageFill.style.background = (inVan && safe.active) ? '#ffd166' : (left===0 ? '#5ef2a2' : left<=2 ? '#ffd166' : '#5aa7f2');
+  hostageText.textContent = label;
+}
+
+/* Loop */
+function loop(ts){
+  const dt=Math.min(0.033,(ts-lastT)/1000||0); lastT=ts;
+  update(dt); drawWorld(); drawMini();
+
+  // scale low-res buffer to fill canvas while preserving aspect
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const scale=Math.max(cv.width/CONFIG.VIRTUAL_W, cv.height/CONFIG.VIRTUAL_H);
+  const dw=Math.ceil(CONFIG.VIRTUAL_W*scale), dh=Math.ceil(CONFIG.VIRTUAL_H*scale);
+  const dx=Math.floor((cv.width-dw)/2), dy=Math.floor((cv.height-dh)/2);
+  ctx.imageSmoothingEnabled=false; ctx.drawImage(buf,0,0,CONFIG.VIRTUAL_W,CONFIG.VIRTUAL_H,dx,dy,dw,dh);
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+updateTimeBar(); updateHostageBar();
+
+/* End conditions */
+const endCheck=setInterval(()=>{ if(!started) return;
+  if(timeLeft<=0){ showEnd('You ran out of time.'); clearInterval(endCheck); }
+},200);
+function showEnd(msg){
+  const overlay=document.createElement('div'); overlay.style.position='fixed'; overlay.style.inset='0';
+  overlay.style.background='rgba(0,0,0,.75)'; overlay.style.display='flex'; overlay.style.alignItems='center';
+  overlay.style.justifyContent='center'; overlay.style.zIndex='8';
+  overlay.innerHTML=`<div class="pixelCard" style="font-weight:900">${msg}</div>`;
+  document.body.appendChild(overlay);
+}
+
+/* World init and HUD sizing */
+setHudVar();
+
+/* Menu wiring */
+startBtn.addEventListener('click', showStory);
+beginBtn.addEventListener('click', beginGame);
+
+/* Hostage bar label reacts when van/safe spawn */
+const observe = setInterval(()=>{ updateHostageBar(); if(!started) return; }, 400);
+</script>
+</body>
+</html>
